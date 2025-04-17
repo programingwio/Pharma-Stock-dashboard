@@ -1,0 +1,40 @@
+SELECT
+    @rownum := @rownum + 1 AS top_position,
+    sub.*
+FROM (
+    SELECT
+        item.itemID,
+        item.longDescription,
+        SUM(posdetail.saleQuantity) AS total_saleQuantity,
+        SUM(posdetail.saleQuantity) / 12 AS Prom_Quince,
+        stock.itemStock,
+        branch.branchDescription Linea,
+        (case
+        When SUM(posdetail.saleQuantity) / 12 > stock.itemStock
+        then
+        "Restock"
+        end)
+    FROM
+        historic.posdetail posdetail
+    JOIN
+        bstore.item item ON posdetail.itemID = item.itemID
+    JOIN
+        bstore.branch branch ON item.branchID = branch.branchID
+    JOIN
+        bstore.warehouseitem stock ON item.itemID = stock.itemID
+    WHERE
+        posdetail.departmentID = 08
+        AND branch.departmentID = 08
+        AND stock.warehouseID = 01
+        AND posdetail.invoiceID LIKE 'F%'
+        AND posdetail.detailInvoiceDate >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+        AND {{filtro_producto}}
+        AND {{line_filter}}
+    GROUP BY
+        item.itemID, item.longDescription, branch.branchDescription
+    ORDER BY
+        total_saleQuantity DESC
+    LIMIT 30
+) AS sub, (SELECT @rownum := 0) AS r
+ORDER BY
+    top_position;
