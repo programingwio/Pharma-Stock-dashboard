@@ -1,0 +1,52 @@
+SELECT
+  `source`.`Mes_Factura` AS `Mes_Factura`,
+  `source`.`Ventas_Totales` AS `Ventas_Totales`,
+  `source`.`Cantidad_Articulos_Vendidos` AS `Cantidad_Articulos_Vendidos`,
+  `source`.`ID_Articulo` AS `ID_Articulo`,
+  `source`.`Descripcion_Articulo` AS `Descripcion_Articulo`,
+  `source`.`branchID` AS `branchID`,
+  `source`.`branchDescription` AS `branchDescription`
+FROM
+  (
+    SELECT
+      DATE_FORMAT(posdetail.detailInvoiceDate, '%Y-%m-01') AS Mes_Factura,
+      SUM(
+        CASE
+          WHEN posdetail.invoiceID LIKE 'F%'
+          THEN (posdetail.totalItem / moneyexchange.valueCompra)
+          ELSE -1 * (posdetail.totalItem / moneyexchange.valueCompra)
+        END
+      ) AS Ventas_Totales,
+      SUM(
+        CASE
+          WHEN posdetail.invoiceID LIKE 'F%'
+          THEN posdetail.saleQuantity
+          ELSE -1 * posdetail.saleQuantity
+        END
+      ) AS Cantidad_Articulos_Vendidos,
+      item.itemID AS ID_Articulo,
+      item.LongDescription AS Descripcion_Articulo,
+      branch.branchID,
+      branch.branchDescription
+    FROM
+      historic.posdetail posdetail
+      JOIN bstore.item item ON posdetail.itemID = item.itemID
+      JOIN bstore.moneyexchange moneyexchange ON posdetail.detailInvoiceDate >= moneyexchange.startDate
+     
+   AND posdetail.detailInvoiceDate <= moneyexchange.endDate
+      JOIN bstore.branch ON item.branchID = branch.branchID
+   
+WHERE
+      posdetail.departmentID = '08'
+      AND branch.departmentID = '08'
+      AND {{item_filter}}
+      AND {{line_filter}}
+   
+GROUP BY
+      Mes_Factura
+   
+ORDER BY
+      Mes_Factura ASC
+  ) AS `source`
+LIMIT
+  1048575
